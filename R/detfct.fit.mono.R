@@ -50,7 +50,7 @@ getRefPoints<- function(no_d, int.range){
 #  pars           - parameters
 #  ddfobj         - ddf object with almost everything we need in it
 #  misc.options   - everything else...
-flnl.constr <- function(pars, ddfobj, misc.options,...){
+flnl.constr <- function(pars, ddfobj, misc.options, fitting){
 
   if(is.null(ddfobj$adjustment)){
     # this never gets called from ddf()
@@ -152,6 +152,8 @@ flnl.constr <- function(pars, ddfobj, misc.options,...){
 }
 
 ## Negative of the constraint
-flnl.constr.neg <- function(pars, ddfobj, misc.options, ...) {
-  return(-1 * flnl.constr(pars, ddfobj, misc.options, ...))
+flnl.constr.neg <- function(pars, ddfobj, misc.options, fitting) {
+  return(-1 * flnl.constr(pars = pars, 
+                          ddfobj = ddfobj, 
+                          misc.options = misc.options))
 }
