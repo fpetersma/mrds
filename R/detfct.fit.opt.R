@@ -44,7 +44,7 @@
 #' @importFrom stats runif optim
 detfct.fit.opt <- function(ddfobj, optim.options, bounds, misc.options,
                            fitting="all"){
-
+  
   # grab the initial values
   initialvalues <- getpar(ddfobj)
   initialvalues.set <- initialvalues # store for later
@@ -69,9 +69,11 @@ detfct.fit.opt <- function(ddfobj, optim.options, bounds, misc.options,
     optim.options$optimx.method <- NULL
     optim.options$follow.on <- TRUE
   }else{
-    opt.method <- "solnp"
+    # opt.method <- "solnp" 
+    opt.method <- misc.options$constr.solver ## New bit of info that must be
+                                             ## supplied through meta.data
   }
-
+  
   # if monotonicity has been requested but we are using key only then just
   # use optimx
   if(misc.options$mono & is.null(ddfobj$adjustment)){
@@ -133,12 +135,61 @@ detfct.fit.opt <- function(ddfobj, optim.options, bounds, misc.options,
       # lower and upper bounds of the inequality constraints
       lowerbounds.ic <- rep(0, 2*misc.options$mono.points)
       upperbounds.ic <- rep(10^10, 2*misc.options$mono.points)
+      
+      ## Uncomment below to start debugging/browsing here
+      # browser() 
 
       # small initialvalues lead to errors in solnp, so work around that
       initialvalues[initialvalues<1e-2] <- sign(initialvalues[initialvalues<1e-2]) * 1e-2
-      if(showit==0){
-        lt <- suppressWarnings(
-                try(solnp(pars=initialvalues, fun=flnl, eqfun=NULL, eqB=NULL,
+      if (showit == 0) {
+        if (opt.method == "auglag") {
+          lt <- suppressWarnings(
+            try(nloptr(x0 = initialvalues, 
+                       eval_f = flnl,
+                       eval_g_ineq = flnl.constr.neg,
+                       lb = lowerbounds, ub = upperbounds,
+                       opts = list(xtol_rel = 1e-4, 
+                                   print_level = as.integer(showit),
+                                   local_opts = list(algorithm = "NLOPT_LN_COBYLA",
+                                                     xtol_rel = 1e-3),
+                                   algorithm = "NLOPT_LN_AUGLAG"),
+                       ddfobj = ddfobj, 
+                       misc.options = misc.options, 
+                       fitting = "all"), 
+                silent = TRUE))
+          if (lt$status >= 0) lt$convergence <- 0 # convergence = 0 if success
+        } 
+        else if (opt.method == "solnp") {
+          lt <- suppressWarnings(
+            try(solnp(pars=initialvalues, fun=flnl, eqfun=NULL, eqB=NULL,
+                      ineqfun=flnl.constr,
+                      ineqLB=lowerbounds.ic, ineqUB=upperbounds.ic,
+                      LB=lowerbounds, UB=upperbounds,
+                      ddfobj=ddfobj, misc.options=misc.options,
+                      control=list(trace=as.integer(showit),
+                                   tol=misc.options$mono.tol,
+                                   delta=misc.options$mono.delta,
+                                   outer.iter=misc.options$mono.outer.iter)
+            ),
+            silent=TRUE))
+        } else {stop("Constrainted solver is not 'auglag' or 'solnp'")}
+      } else {
+        if (opt.method == "auglag") {
+          lt <- try(nloptr(x0 = initialvalues, 
+                           eval_f = flnl,
+                           eval_g_ineq = flnl.constr.neg,
+                           lb = lowerbounds, ub = upperbounds,
+                           opts = list(xtol_rel = 1e-4,
+                                       print_level = as.integer(showit),
+                                       local_opts = list(algorithm = "NLOPT_LN_COBYLA",
+                                                         xtol_rel = 1e-3),
+                                       algorithm = "NLOPT_LN_AUGLAG"),
+                           ddfobj = ddfobj, 
+                           misc.options = misc.options, 
+                           fitting = "all"))
+          if (lt$status >= 0) lt$convergence <- 0 # convergence = 0 if success
+        } else if (opt.method == "solnp") {
+          lt <- try(solnp(pars=initialvalues, fun=flnl, eqfun=NULL, eqB=NULL,
                           ineqfun=flnl.constr,
                           ineqLB=lowerbounds.ic, ineqUB=upperbounds.ic,
                           LB=lowerbounds, UB=upperbounds,
@@ -147,24 +198,15 @@ detfct.fit.opt <- function(ddfobj, optim.options, bounds, misc.options,
                                        tol=misc.options$mono.tol,
                                        delta=misc.options$mono.delta,
                                        outer.iter=misc.options$mono.outer.iter)
-                         ),
-                    silent=TRUE))
-      }else{
-        lt <- try(solnp(pars=initialvalues, fun=flnl, eqfun=NULL, eqB=NULL,
-                        ineqfun=flnl.constr,
-                        ineqLB=lowerbounds.ic, ineqUB=upperbounds.ic,
-                        LB=lowerbounds, UB=upperbounds,
-                        ddfobj=ddfobj, misc.options=misc.options,
-                        control=list(trace=as.integer(showit),
-                                     tol=misc.options$mono.tol,
-                                     delta=misc.options$mono.delta,
-                                     outer.iter=misc.options$mono.outer.iter)))
+          ))
+        } else {stop("Constrainted solver is not 'auglag' or 'solnp'")}
       }
 
       # only do something more complicated if we didn't converge above!
-      if(inherits(lt, "try-error") || lt$convergence!=0){
+      if(inherits(lt, "try-error") || lt$convergence!=0 ){
         # we can use the gosolnp() function to explore the parameter space
         # randomly...
+        stop("It should converge!") # FTP: added temporarily
         if(misc.options$mono.random.start){
           if(length(initialvalues)>1){
             # gosolnp doesn't work when there is only 1 parameter
@@ -288,9 +330,16 @@ detfct.fit.opt <- function(ddfobj, optim.options, bounds, misc.options,
         }
       }else{
         lt$conv <- lt$convergence
-        lt$par <- lt$pars
-        lt$value <- lt$values[length(lt$values)]
         lt$message <- ""
+        
+        if (opt.method == "solnp") {
+          lt$par <- lt$pars
+          lt$value <- lt$values[length(lt$values)]
+        } else if (opt.method == "auglag") {
+          lt$par <- lt$solution
+          lt$value <- lt$objective
+        } else stop("Invalid constrained solver")
+        
       }
     ## end monotonically constrained estimation
     }else{
