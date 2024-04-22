@@ -24,6 +24,24 @@ getRefPoints<- function(no_d, int.range){
   return(ref_points)
 }
 
+## FTP: When trying to run nloptr::auglag(), I get the following error:
+# Error in .hin(x) : argument "ddfobj" is missing, with no default
+# I think this is because of the following lines in nloptr::auglag()
+#           hin <- function(x) (-1) * .hin(x)
+# What happens here is that only x is passed on, but not ... . Therefore, the 
+# additional information that flnl.contr requires, such as ddfobj and 
+# misc.options, are not passed to the hin() function, 
+# and thus it cannot calculate the constraint.
+# Cal and I came up with the following solution:
+# Write a wrapper function for the optimiser which takes ddfobj ect as 
+# arguments, and within that wrapper define the constraint function 
+# flnl.contr(pars) the same as below but only give it one argument. Because
+# it also needs ddfobj and misc.options, but cannot find it, it will look up
+# one higher scope, which is the wrapper function, in which it will be able
+# to find these variables. Now the optimiser is happy as it only needs to pass
+# the current parameters as an argument to the constraint function, and the 
+# constraint function is happy as it can find the other necessary arguments
+# by looking in a higher scope. 
 
 #
 # set of equations associated with the Inequality Constraints
@@ -32,7 +50,7 @@ getRefPoints<- function(no_d, int.range){
 #  pars           - parameters
 #  ddfobj         - ddf object with almost everything we need in it
 #  misc.options   - everything else...
-flnl.constr<- function(pars, ddfobj, misc.options,...){
+flnl.constr <- function(pars, ddfobj, misc.options,...){
 
   if(is.null(ddfobj$adjustment)){
     # this never gets called from ddf()
@@ -95,9 +113,36 @@ flnl.constr<- function(pars, ddfobj, misc.options,...){
         }
       }
     }
+    # FTP: I think, rather than what is done above, simply create extract
+    # the differences with the point before. Then, when enforcing weak 
+    # monotonicity, simple keep the numbers as they are, as the inequality 
+    # constraint checks for >=0, not only >0; when enforcing strong 
+    # monononicity, subtract a very small number (e., 1e-6) from the differences
+    # (ic_m) to make the zero differences negative, thereby failing the 
+    # monotonicity constraint. 
+    # Find the (in my opinion) correct code below:
+    # START >>>>>>
+    ic_m <- NULL
+    if(constr){
+      # set the reference point to be the detection function
+      # value at 0
+      df_v_rp_p <- df_v_rp0
+      ic_m <- double(no_d)
+      for(i in 1:no_d){
+        ic_m[i] <- (df_v_rp_p - df_v_rp[i])
+        # update the reference point to the most recently evaluated point
+        df_v_rp_p <- df_v_rp[i]
+      }
+    }
+    if (!strict) {
+      # subtract small number to make the zero-differences negative
+      ic_m <- ic_m - 1e-6
+    }
+    # <<<<< END
+
     # inequality constraints ensuring that
     # the detection function is always >=0
-    ic_p <- double(no_d)
+    ic_p <- double(no_d) # FTP: why create ic_p and then overwrite it?
     ic_p <- df_v_rp
 
     #  set of inequality constraints
