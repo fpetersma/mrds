@@ -150,7 +150,7 @@ auglagWrapper <- function (x0,
   # 2. Now run the auglag solver
   auglag(x0 = x0, 
          fn = fn, 
-         hin = constr,
+         hin = constr, 
          # ineqLB = lowerbounds.ic, ineqUB = upperbounds.ic,
          # lower = lowerbounds, upper = upperbounds,
          ddfobj = ddfobj, misc.options = misc.options,
