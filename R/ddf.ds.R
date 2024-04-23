@@ -101,7 +101,8 @@ ddf.ds <-function(dsmodel, mrmodel = NULL,
   # Set up meta data values
   meta.data <- assign.default.values(meta.data, left=0, width=NA, binned=FALSE,
                                     int.range=NA, mono=FALSE, mono.strict=FALSE,
-                                    constr.solver = NA, # FTP: add slot for constraint solver
+                                    constr.solver = NA, # FTP: add slot for constraint solver (default=NA)
+                                    constr.startvals = FALSE, # FTP: add slot for finding best starting values for contr. solver (default=FALSE)
                                     point=FALSE)
 
   # Set up control values
@@ -201,6 +202,7 @@ ddf.ds <-function(dsmodel, mrmodel = NULL,
                      nofit=control$nofit, left=meta.data$left,
                      silent=control$silent,
                      constr.solver = meta.data$constr.solver, # FTP: added this to specify constr. solver
+                     constr.startvals = meta.data$constr.startvals,  # FTP: find best start values or just fit with "bad" ones?
                      mono.random.start=control$mono.random.start,
                      mono.outer.iter=control$mono.outer.iter
                     )
