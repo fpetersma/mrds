@@ -199,13 +199,15 @@ detfct.fit.opt <- function(ddfobj, optim.options, bounds, misc.options,
                                        delta=misc.options$mono.delta,
                                        outer.iter=misc.options$mono.outer.iter)
           ))
-        } else {stop("Constrainted solver is not 'auglag' or 'solnp'")}
+        } else { # Maybe this check should happen elsewhere and not here.. 
+          stop("Constrainted solver is not 'auglag' or 'solnp'")
+        }
       }
 
       # only do something more complicated if we didn't converge above!
       if(inherits(lt, "try-error") || lt$convergence!=0 ){
         # we can use the gosolnp() function to explore the parameter space
-        # randomly...
+        # randomly... Only use this if solnp was specified as constr solver
         if(misc.options$mono.random.start & opt.method == "solnp"){
           if(length(initialvalues)>1){
             # gosolnp doesn't work when there is only 1 parameter
@@ -245,7 +247,7 @@ detfct.fit.opt <- function(ddfobj, optim.options, bounds, misc.options,
                                  rseed=as.integer(runif(1)*1e9)))
             }
 
-            # was this better than the first time
+            # was this better than the first time?
             if(!inherits(lt2, "try-error")){
               if(inherits(lt, "try-error") ||
                  (!is.na(lt2$values[length(lt2$values)]) &&
@@ -372,7 +374,9 @@ detfct.fit.opt <- function(ddfobj, optim.options, bounds, misc.options,
                                            delta=misc.options$mono.delta,
                                            outer.iter=misc.options$mono.outer.iter)
               ))
-            } else {stop("Constrainted solver is not 'auglag' or 'solnp'")}
+            } else { # Maybe this check should happen elsewhere and not here.. 
+              stop("Constrainted solver is not 'auglag' or 'solnp'")
+            }
           }
         } # end random vs. non-random par space exploration
       } # end if constraint solver didn't converge the first time
