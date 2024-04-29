@@ -72,6 +72,13 @@ detfct.fit.opt <- function(ddfobj, optim.options, bounds, misc.options,
     # opt.method <- "solnp" 
     opt.method <- misc.options$constr.solver ## New bit of info that must be
                                              ## supplied through meta.data
+    if (misc.options$constr.solver.loc == "bobyqa") {
+      opt.method.local <- "NLOPT_LN_BOBYQA"
+    } else if (misc.options$constr.solver.loc == "cobyla") {
+      opt.method.local <- "NLOPT_LN_COBYLA"
+    } else {
+      stop("Invalid local constrained solver supplied! Should be 'bobyqa' or 'cobyla'")
+    }
   }
   
   # if monotonicity has been requested but we are using key only then just
@@ -137,7 +144,7 @@ detfct.fit.opt <- function(ddfobj, optim.options, bounds, misc.options,
       upperbounds.ic <- rep(10^10, 2*misc.options$mono.points)
       
       ## Uncomment below to start debugging/browsing here
-      # browser() 
+      # browser()
 
       # small initialvalues lead to errors in solnp, so work around that
       initialvalues[initialvalues<1e-2] <- sign(initialvalues[initialvalues<1e-2]) * 1e-2
@@ -148,16 +155,21 @@ detfct.fit.opt <- function(ddfobj, optim.options, bounds, misc.options,
                        eval_f = flnl,
                        eval_g_ineq = flnl.constr.neg,
                        lb = lowerbounds, ub = upperbounds,
-                       opts = list(xtol_rel = 1e-4, 
+                       opts = list(xtol_rel = misc.options$mono.tol, 
+                                   ftol_rel = 0, ftol_abs = 0, maxeval = 1000,
                                    print_level = as.integer(showit),
-                                   local_opts = list(algorithm = "NLOPT_LN_COBYLA",
+                                   local_opts = list(algorithm = opt.method.local,
                                                      xtol_rel = 1e-3),
                                    algorithm = "NLOPT_LN_AUGLAG"),
                        ddfobj = ddfobj, 
                        misc.options = misc.options, 
                        fitting = "all"), 
                 silent = TRUE))
-          if (lt$status >= 0) lt$convergence <- 0 # convergence = 0 if success
+          if (!inherits(lt, "try-error")) {
+            if (lt$status == 3) {
+              lt$convergence <- 0 # convergence = 3 if success, but look into this!
+            } else (lt$convergence <- 1) # Have 1 now as code for failed convergence, not sure if correct
+          }
         } 
         else if (opt.method == "solnp") {
           lt <- suppressWarnings(
@@ -179,15 +191,20 @@ detfct.fit.opt <- function(ddfobj, optim.options, bounds, misc.options,
                            eval_f = flnl,
                            eval_g_ineq = flnl.constr.neg,
                            lb = lowerbounds, ub = upperbounds,
-                           opts = list(xtol_rel = 1e-4,
+                           opts = list(xtol_rel = misc.options$mono.tol, 
+                                       ftol_rel = 0, ftol_abs = 0, maxeval = 1000,
                                        print_level = as.integer(showit),
-                                       local_opts = list(algorithm = "NLOPT_LN_COBYLA",
+                                       local_opts = list(algorithm = opt.method.local,
                                                          xtol_rel = 1e-3),
                                        algorithm = "NLOPT_LN_AUGLAG"),
                            ddfobj = ddfobj, 
                            misc.options = misc.options, 
                            fitting = "all"))
-          if (lt$status >= 0) lt$convergence <- 0 # convergence = 0 if success
+          if (!inherits(lt, "try-error")) {
+            if (lt$status == 3) {
+              lt$convergence <- 0 # convergence = 3 if success, but look into this!
+            } else (lt$convergence <- 1) # Have 1 now as code for failed convergence, not sure if correct
+          }
         } else if (opt.method == "solnp") {
           lt <- try(solnp(pars=initialvalues, fun=flnl, eqfun=NULL, eqB=NULL,
                           ineqfun=flnl.constr,
@@ -323,16 +340,20 @@ detfct.fit.opt <- function(ddfobj, optim.options, bounds, misc.options,
                            eval_f = flnl,
                            eval_g_ineq = flnl.constr.neg,
                            lb = lowerbounds, ub = upperbounds,
-                           opts = list(xtol_rel = 1e-4, 
+                           opts = list(xtol_rel = misc.options$mono.tol, 
                                        print_level = as.integer(showit),
-                                       local_opts = list(algorithm = "NLOPT_LN_COBYLA",
+                                       local_opts = list(algorithm = opt.method.local,
                                                          xtol_rel = 1e-3),
                                        algorithm = "NLOPT_LN_AUGLAG"),
                            ddfobj = ddfobj, 
                            misc.options = misc.options, 
                            fitting = "all"), 
                     silent = TRUE))
-              if (lt$status >= 0) lt$convergence <- 0 # convergence = 0 if success
+              if (!inherits(lt, "try-error")) {
+                if (lt$status == 3) {
+                  lt$convergence <- 0 # convergence = 3 if success, but look into this!
+                } else (lt$convergence <- 1) # Have 1 now as code for failed convergence, not sure if correct
+              } 
             } 
             else if (opt.method == "solnp") {
               lt <- suppressWarnings(
@@ -354,15 +375,20 @@ detfct.fit.opt <- function(ddfobj, optim.options, bounds, misc.options,
                                eval_f = flnl,
                                eval_g_ineq = flnl.constr.neg,
                                lb = lowerbounds, ub = upperbounds,
-                               opts = list(xtol_rel = 1e-4,
+                               opts = list(xtol_rel = misc.options$mono.tol, 
+                                           ftol_rel = 0, ftol_abs = 0, maxeval = 1000,
                                            print_level = as.integer(showit),
-                                           local_opts = list(algorithm = "NLOPT_LN_COBYLA",
+                                           local_opts = list(algorithm = opt.method.local,
                                                              xtol_rel = 1e-3),
                                            algorithm = "NLOPT_LN_AUGLAG"),
                                ddfobj = ddfobj, 
                                misc.options = misc.options, 
                                fitting = "all"))
-              if (lt$status >= 0) lt$convergence <- 0 # convergence = 0 if success
+              if (!inherits(lt, "try-error")) {
+                if (lt$status == 3) {
+                  lt$convergence <- 0 # convergence = 3 if success, but look into this!
+                } else (lt$convergence <- 1) # Have 1 now as code for failed convergence, not sure if correct
+              }
             } else if (opt.method == "solnp") {
               lt <- try(solnp(pars=par_grid[igrid, ], fun=flnl, eqfun=NULL, eqB=NULL,
                               ineqfun=flnl.constr,
