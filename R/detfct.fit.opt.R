@@ -206,8 +206,7 @@ detfct.fit.opt <- function(ddfobj, optim.options, bounds, misc.options,
       if(inherits(lt, "try-error") || lt$convergence!=0 ){
         # we can use the gosolnp() function to explore the parameter space
         # randomly...
-        stop("It should converge!") # FTP: added temporarily
-        if(misc.options$mono.random.start){
+        if(misc.options$mono.random.start & opt.method == "solnp"){
           if(length(initialvalues)>1){
             # gosolnp doesn't work when there is only 1 parameter
             # since there is a bug that leaves the optimisation with a vector
@@ -289,11 +288,81 @@ detfct.fit.opt <- function(ddfobj, optim.options, bounds, misc.options,
                              ddfobj=ddfobj, misc.options=misc.options)
           igrid <- which.min(grid_lnls)
 
-          # now run at best value
-          if(showit==0){
-            lt <- suppressWarnings(
-                    try(solnp(pars=par_grid[igrid, ], fun=flnl,
-                              eqfun=NULL, eqB=NULL,
+          ## Now run at best values
+          # if(showit==0){
+          #   lt <- suppressWarnings(
+          #           try(solnp(pars=par_grid[igrid, ], fun=flnl,
+          #                     eqfun=NULL, eqB=NULL,
+          #                     ineqfun=flnl.constr,
+          #                     ineqLB=lowerbounds.ic, ineqUB=upperbounds.ic,
+          #                     LB=lowerbounds, UB=upperbounds,
+          #                     ddfobj=ddfobj, misc.options=misc.options,
+          #                     control=list(trace=as.integer(showit),
+          #                                  tol=misc.options$mono.tol,
+          #                                  delta=misc.options$mono.delta,
+          #                                  outer.iter=misc.options$mono.outer.iter)),
+          #               silent=TRUE))
+          # }else{
+          #   lt <- try(solnp(pars=par_grid[igrid, ], fun=flnl,
+          #                   eqfun=NULL, eqB=NULL,
+          #                   ineqfun=flnl.constr,
+          #                   ineqLB=lowerbounds.ic, ineqUB=upperbounds.ic,
+          #                   LB=lowerbounds, UB=upperbounds,
+          #                   ddfobj=ddfobj, misc.options=misc.options,
+          #                   control=list(trace=as.integer(showit),
+          #                                tol=misc.options$mono.tol,
+          #                                delta=misc.options$mono.delta,
+          #                                outer.iter=misc.options$mono.outer.iter)))
+          # } # end showit status
+          if (showit == 0) {
+            if (opt.method == "auglag") {
+              lt <- suppressWarnings(
+                try(nloptr(x0 = par_grid[igrid, ], 
+                           eval_f = flnl,
+                           eval_g_ineq = flnl.constr.neg,
+                           lb = lowerbounds, ub = upperbounds,
+                           opts = list(xtol_rel = 1e-4, 
+                                       print_level = as.integer(showit),
+                                       local_opts = list(algorithm = "NLOPT_LN_COBYLA",
+                                                         xtol_rel = 1e-3),
+                                       algorithm = "NLOPT_LN_AUGLAG"),
+                           ddfobj = ddfobj, 
+                           misc.options = misc.options, 
+                           fitting = "all"), 
+                    silent = TRUE))
+              if (lt$status >= 0) lt$convergence <- 0 # convergence = 0 if success
+            } 
+            else if (opt.method == "solnp") {
+              lt <- suppressWarnings(
+                try(solnp(pars = par_grid[igrid, ], fun=flnl, eqfun=NULL, eqB=NULL,
+                          ineqfun=flnl.constr,
+                          ineqLB=lowerbounds.ic, ineqUB=upperbounds.ic,
+                          LB=lowerbounds, UB=upperbounds,
+                          ddfobj=ddfobj, misc.options=misc.options,
+                          control=list(trace=as.integer(showit),
+                                       tol=misc.options$mono.tol,
+                                       delta=misc.options$mono.delta,
+                                       outer.iter=misc.options$mono.outer.iter)
+                ),
+                silent=TRUE))
+            } else {stop("Constrainted solver is not 'auglag' or 'solnp'")}
+          } else {
+            if (opt.method == "auglag") {
+              lt <- try(nloptr(x0 = par_grid[igrid, ], 
+                               eval_f = flnl,
+                               eval_g_ineq = flnl.constr.neg,
+                               lb = lowerbounds, ub = upperbounds,
+                               opts = list(xtol_rel = 1e-4,
+                                           print_level = as.integer(showit),
+                                           local_opts = list(algorithm = "NLOPT_LN_COBYLA",
+                                                             xtol_rel = 1e-3),
+                                           algorithm = "NLOPT_LN_AUGLAG"),
+                               ddfobj = ddfobj, 
+                               misc.options = misc.options, 
+                               fitting = "all"))
+              if (lt$status >= 0) lt$convergence <- 0 # convergence = 0 if success
+            } else if (opt.method == "solnp") {
+              lt <- try(solnp(pars=par_grid[igrid, ], fun=flnl, eqfun=NULL, eqB=NULL,
                               ineqfun=flnl.constr,
                               ineqLB=lowerbounds.ic, ineqUB=upperbounds.ic,
                               LB=lowerbounds, UB=upperbounds,
@@ -301,24 +370,14 @@ detfct.fit.opt <- function(ddfobj, optim.options, bounds, misc.options,
                               control=list(trace=as.integer(showit),
                                            tol=misc.options$mono.tol,
                                            delta=misc.options$mono.delta,
-                                           outer.iter=misc.options$mono.outer.iter)),
-                        silent=TRUE))
-          }else{
-            lt <- try(solnp(pars=par_grid[igrid, ], fun=flnl,
-                            eqfun=NULL, eqB=NULL,
-                            ineqfun=flnl.constr,
-                            ineqLB=lowerbounds.ic, ineqUB=upperbounds.ic,
-                            LB=lowerbounds, UB=upperbounds,
-                            ddfobj=ddfobj, misc.options=misc.options,
-                            control=list(trace=as.integer(showit),
-                                         tol=misc.options$mono.tol,
-                                         delta=misc.options$mono.delta,
-                                         outer.iter=misc.options$mono.outer.iter)))
-          } # end showit status
+                                           outer.iter=misc.options$mono.outer.iter)
+              ))
+            } else {stop("Constrainted solver is not 'auglag' or 'solnp'")}
+          }
         } # end random vs. non-random par space exploration
-      } # end if solnp didn't converge the first time
+      } # end if constraint solver didn't converge the first time
 
-      # if that failed then make a dummy object
+      # If that failed then make a dummy object
       if(inherits(lt, "try-error")){
         lt <- list()
         lt$conv <- 9
@@ -342,7 +401,7 @@ detfct.fit.opt <- function(ddfobj, optim.options, bounds, misc.options,
         
       }
     ## end monotonically constrained estimation
-    }else{
+    } else {
     ## unconstrained optimisation
 
       # get the list of optimisation methods
