@@ -93,8 +93,8 @@ flnl.constr <- function(pars, ddfobj, misc.options, fitting){
     }
 
     # evaluate the detection function at 0
-    df_v_rp0 <- as.vector(detfct(ref_p0,ddfobj,width=misc.options$width,
-                                standardize=TRUE))
+    df_v_rp0 <- as.vector(detfct(ref_p0, ddfobj ,width = misc.options$width,
+                                standardize = TRUE))
 
     # inequality constraints ensuring the
     # (weak or strict) monotonicity
@@ -113,32 +113,6 @@ flnl.constr <- function(pars, ddfobj, misc.options, fitting){
         }
       }
     }
-    # FTP: I think, rather than what is done above, simply create extract
-    # the differences with the point before. Then, when enforcing weak 
-    # monotonicity, simple keep the numbers as they are, as the inequality 
-    # constraint checks for >=0, not only >0; when enforcing strong 
-    # monononicity, subtract a very small number (e., 1e-6) from the differences
-    # (ic_m) to make the zero differences negative, thereby failing the 
-    # monotonicity constraint. 
-    # Find the (in my opinion) correct code below:
-    # START >>>>>>
-    ic_m <- NULL
-    if(constr){
-      # set the reference point to be the detection function
-      # value at 0
-      df_v_rp_p <- df_v_rp0
-      ic_m <- double(no_d)
-      for(i in 1:no_d){
-        ic_m[i] <- (df_v_rp_p - df_v_rp[i])
-        # update the reference point to the most recently evaluated point
-        df_v_rp_p <- df_v_rp[i]
-      }
-    }
-    if (!strict) {
-      # subtract small number to make the zero-differences negative
-      ic_m <- ic_m - 1e-6
-    }
-    # <<<<< END
 
     # inequality constraints ensuring that
     # the detection function is always >=0
